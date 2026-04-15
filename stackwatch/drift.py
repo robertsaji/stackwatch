@@ -1,15 +1,13 @@
-"""AWS CloudFormation stack drift detection module."""
+"""CloudFormation drift detection."""
+from __future__ import annotations
 
-import logging
+import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, List
 
 import boto3
-from botocore.exceptions import ClientError
 
 from stackwatch.config import AWSConfig
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -17,72 +15,72 @@ class DriftedResource:
     logical_id: str
     resource_type: str
     drift_status: str
-    expected_properties: Optional[str] = None
-    actual_properties: Optional[str] = None
 
 
 @dataclass
 class DriftResult:
     stack_name: str
-    drift_status: str
-    drifted_resources: list[DriftedResource] = field(default_factory=list)
-    error: Optional[str] = None
+    has_drift: bool
+    drifted_resources: List[DriftedResource]
+    stack_tags: Dict[str, str] = field(default_factory=dict)
 
-    @property
-    def has_drift(self) -> bool:
-        return self.drift_status == "DRIFTED"
+
+def has_drift(result: DriftResult) -> bool:
+    return result.has_drift
 
 
 class DriftDetector:
-    def __init__(self, aws_config: AWSConfig):
-        self._config = aws_config
+    def __init__(self, config: AWSConfig) -> None:
+        self._config = config
         self._client = boto3.client(
             "cloudformation",
-            region_name=aws_config.region,
-            aws_access_key_id=aws_config.access_key_id or None,
-            aws_secret_access_key=aws_config.secret_access_key or None,
+            region_name=config.region,
         )
 
-    def detect(self, stack_name: str) -> DriftResult:
-        """Trigger drift detection and return the result."""
+    def _get_stack_tags(self, stack_name: str) -> Dict[str, str]:
         try:
-            detection_id = self._start_detection(stack_name)
-            self._wait_for_detection(detection_id)
-            return self._get_result(stack_name, detection_id)
-        except ClientError as exc:
-            error_msg = str(exc)
-            logger.error("Drift detection failed for %s: %s", stack_name, error_msg)
-            return DriftResult(stack_name=stack_name, drift_status="UNKNOWN", error=error_msg)
+            resp = self._client.describe_stacks(StackName=stack_name)
+            raw_tags = resp["Stacks"][0].get("Tags", [])
+            return {t["Key"]: t["Value"] for t in raw_tags}
+        except Exception:
+            return {}
 
-    def _start_detection(self, stack_name: str) -> str:
-        response = self._client.detect_stack_drift(StackName=stack_name)
-        return response["StackDriftDetectionId"]
-
-    def _wait_for_detection(self, detection_id: str) -> None:
+    def detect(self, stack_name: str) -> DriftResult:
+        detection_id = self._client.detect_stack_drift(StackName=stack_name)[
+            "StackDriftDetectionId"
+        ]
         waiter = self._client.get_waiter("stack_drift_detection_complete")
         waiter.wait(StackDriftDetectionId=detection_id)
 
-    def _get_result(self, stack_name: str, detection_id: str) -> DriftResult:
         status_resp = self._client.describe_stack_drift_detection_status(
             StackDriftDetectionId=detection_id
         )
-        drift_status = status_resp.get("StackDriftStatus", "NOT_CHECKED")
-        result = DriftResult(stack_name=stack_name, drift_status=drift_status)
+        drift_status = status_resp["StackDriftStatus"]
+        has = drift_status == "DRIFTED"
 
-        if result.has_drift:
+        drifted: List[DriftedResource] = []
+        if has:
             paginator = self._client.get_paginator("describe_stack_resource_drifts")
             for page in paginator.paginate(
                 StackName=stack_name,
                 StackResourceDriftStatusFilters=["MODIFIED", "DELETED"],
             ):
-                for r in page.get("StackResourceDrifts", []):
-                    result.drifted_resources.append(
+                for r in page["StackResourceDrifts"]:
+                    drifted.append(
                         DriftedResource(
                             logical_id=r["LogicalResourceId"],
                             resource_type=r["ResourceType"],
                             drift_status=r["StackResourceDriftStatus"],
-                            expected_properties=r.get("ExpectedProperties"),
-                            actual_properties=r.get("ActualProperties"),
                         )
                     )
-        return result
+
+        tags = self._get_stack_tags(stack_name)
+        return DriftResult(
+            stack_name=stack_name,
+            has_drift=has,
+            drifted_resources=drifted,
+            stack_tags=tags,
+        )
+
+    def detect_all(self, stack_names: List[str]) -> List[DriftResult]:
+        return [self.detect(name) for name in stack_names]
