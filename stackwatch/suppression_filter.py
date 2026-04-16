@@ -14,6 +14,14 @@ class SuppressionFilterResult:
     allowed: List[DriftResult]
     suppressed: List[DriftResult]
 
+    @property
+    def summary(self) -> str:
+        """Return a human-readable summary of the filter result."""
+        return (
+            f"{len(self.allowed)} allowed, {len(self.suppressed)} suppressed "
+            f"(total {len(self.allowed) + len(self.suppressed)})"
+        )
+
 
 class SuppressionFilter:
     """Wraps a SuppressionStore and partitions drift results."""
