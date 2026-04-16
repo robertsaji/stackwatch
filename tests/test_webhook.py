@@ -46,6 +46,12 @@ def test_build_payload_contains_resources(drifted_result):
     assert payload["drifted_resources"][0]["logical_id"] == "MyBucket"
 
 
+def test_build_payload_contains_status(drifted_result):
+    """Ensure the drift status is included in the payload."""
+    payload = _build_payload(drifted_result)
+    assert payload["status"] == "DRIFTED"
+
+
 def test_send_skips_in_sync(config, in_sync_result):
     notifier = WebhookNotifier(config)
     with patch("urllib.request.urlopen") as mock_open:
