@@ -105,7 +105,7 @@ def test_render_summary_text_ok_marker(in_sync_result):
 
 
 def test_render_summary_text_drift_rate(drifted_result, in_sync_result):
-    """Drift rate percentage should appear in the rendered output."""
+    """Drift rate percentage should appear in the rendered text."""
     summary = build_summary([drifted_result, in_sync_result])
     text = render_summary_text(summary)
     assert "50.0%" in text or "50%" in text
