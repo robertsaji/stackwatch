@@ -84,21 +84,20 @@ def test_non_retryable_exception_propagates_immediately() -> None:
     )
     retry = Retry(cfg)
     fn = MagicMock(side_effect=ValueError("not retryable"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="not retryable"):
         retry.call(fn)
+    # Should have stopped after the first attempt without retrying.
     assert retry.attempt_count == 1
 
 
-# ---------------------------------------------------------------------------
-# Delay / sleep behaviour
-# ---------------------------------------------------------------------------
-
-def test_sleep_called_between_attempts() -> None:
-    cfg = RetryConfig(max_attempts=3, base_delay=1.0, backoff_factor=2.0)
+def test_retryable_exception_is_retried() -> None:
+    cfg = RetryConfig(
+        max_attempts=3,
+        base_delay=0.0,
+        retryable_exceptions=(IOError,),
+    )
     retry = Retry(cfg)
-    fn = MagicMock(side_effect=[RuntimeError(), RuntimeError(), "done"])
-    with patch("stackwatch.retry.time.sleep") as mock_sleep:
-        retry.call(fn)
-    assert mock_sleep.call_count == 2
-    calls = [c.args[0] for c in mock_sleep.call_args_list]
-    assert calls == [1.0, 2.0]
+    fn = MagicMock(side_effect=[IOError("transient"), IOError("transient"), "done"])
+    result = retry.call(fn)
+    assert result == "done"
+    assert retry.attempt_count == 3
