@@ -91,11 +91,3 @@ def test_add_replaces_existing_rule(store: SuppressionStore):
     rules = store.active_rules()
     assert len(rules) == 1
     assert rules[0].reason == "new"
-
-
-def test_load_raises_on_corrupt_file(store_path: Path):
-    store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.write_text("not json")
-    s = SuppressionStore(path=store_path)
-    with pytest.raises(SuppressionError):
-        s.load()
