@@ -28,32 +28,30 @@ class SeverityResult:
 
 def classify(result: DriftResult) -> SeverityResult:
     """Classify drift severity based on number of drifted resources."""
+    total = len(result.resources)
     if not result.has_drift:
-        level = SeverityLevel.LOW
-    else:
-        drifted = len([r for r in result.resources if r.drifted])
-        total = len(result.resources)
-        ratio = drifted / total if total else 0.0
-        if ratio >= 0.75:
-            level = SeverityLevel.CRITICAL
-        elif ratio >= 0.5:
-            level = SeverityLevel.HIGH
-        elif ratio >= 0.25:
-            level = SeverityLevel.MEDIUM
-        else:
-            level = SeverityLevel.LOW
-        drifted_count = drifted
         return SeverityResult(
             stack_name=result.stack_name,
-            level=level,
-            drifted_count=drifted,
+            level=SeverityLevel.LOW,
+            drifted_count=0,
             total_count=total,
         )
+
+    drifted = len([r for r in result.resources if r.drifted])
+    ratio = drifted / total if total else 0.0
+    if ratio >= 0.75:
+        level = SeverityLevel.CRITICAL
+    elif ratio >= 0.5:
+        level = SeverityLevel.HIGH
+    elif ratio >= 0.25:
+        level = SeverityLevel.MEDIUM
+    else:
+        level = SeverityLevel.LOW
     return SeverityResult(
         stack_name=result.stack_name,
         level=level,
-        drifted_count=0,
-        total_count=len(result.resources),
+        drifted_count=drifted,
+        total_count=total,
     )
 
 
