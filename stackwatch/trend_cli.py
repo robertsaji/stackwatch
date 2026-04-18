@@ -20,6 +20,9 @@ def show_trend(history_file: str, last: int) -> None:
     """Display drift trend from recorded history."""
     history = _get_history(history_file)
     entries = history.load()
+    if not entries:
+        click.echo("No history entries found.")
+        return
     if last > 0:
         entries = entries[-last:]
     report = build_trend(entries)
@@ -32,6 +35,9 @@ def show_status(history_file: str) -> None:
     """Print improving / worsening / stable status."""
     history = _get_history(history_file)
     entries = history.load()
+    if not entries:
+        click.echo("No history entries found.", err=True)
+        raise SystemExit(1)
     report = build_trend(entries)
     if report.improving:
         click.echo("IMPROVING")
