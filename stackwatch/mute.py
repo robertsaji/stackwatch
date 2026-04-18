@@ -38,10 +38,11 @@ class MuteStore:
         self._save()
 
     def unmute(self, stack_name: str) -> None:
-        """Unmute a stack. No-op if not muted."""
-        if stack_name in self._data:
-            del self._data[stack_name]
-            self._save()
+        """Unmute a stack. Raises MuteError if the stack is not muted."""
+        if stack_name not in self._data:
+            raise MuteError(f"Stack {stack_name!r} is not muted")
+        del self._data[stack_name]
+        self._save()
 
     def is_muted(self, stack_name: str) -> bool:
         return stack_name in self._data
