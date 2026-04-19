@@ -36,6 +36,9 @@ def set_labels(stack_name: str, labels: tuple, store: str) -> None:
 def remove_labels(stack_name: str, store: str) -> None:
     """Remove all labels from STACK_NAME."""
     s = _get_store(store)
+    if not s.get_labels(stack_name):
+        click.echo(f"No labels found for {stack_name}", err=True)
+        raise click.exceptions.Exit(1)
     s.remove(stack_name)
     click.echo(f"Labels removed for {stack_name}")
 
