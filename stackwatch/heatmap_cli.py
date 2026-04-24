@@ -15,6 +15,19 @@ def _get_history(path: Path) -> DriftHistory:
     return DriftHistory(path=path)
 
 
+def _load_heatmap(history_file: str):
+    """Load history from *history_file* and return a built heatmap.
+
+    Raises :class:`click.ClickException` if the file does not exist.
+    """
+    path = Path(history_file)
+    if not path.exists():
+        raise click.ClickException(f"History file not found: {path}")
+    history = _get_history(path)
+    entries = history.load()
+    return build_heatmap(entries)
+
+
 @click.group(name="heatmap")
 def heatmap_group() -> None:
     """Drift frequency heatmap commands."""
@@ -35,9 +48,7 @@ def heatmap_group() -> None:
 )
 def show_command(history_file: str, top: int) -> None:
     """Display a drift frequency heatmap."""
-    history = _get_history(Path(history_file))
-    entries = history.load()
-    heatmap = build_heatmap(entries)
+    heatmap = _load_heatmap(history_file)
 
     if top > 0:
         from stackwatch.heatmap import Heatmap
@@ -56,9 +67,7 @@ def show_command(history_file: str, top: int) -> None:
 @click.option("-n", default=5, show_default=True, help="Number of stacks to show.")
 def hottest_command(history_file: str, n: int) -> None:
     """Show the N stacks with the highest drift rate."""
-    history = _get_history(Path(history_file))
-    entries = history.load()
-    heatmap = build_heatmap(entries)
+    heatmap = _load_heatmap(history_file)
     hottest = heatmap.hottest(n)
 
     if not hottest:
