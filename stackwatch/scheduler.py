@@ -28,10 +28,16 @@ class DriftScheduler:
         self.max_runs = max_runs
         self._run_count = 0
         self._running = False
+        self._last_run_at: Optional[datetime] = None
 
     @property
     def run_count(self) -> int:
         return self._run_count
+
+    @property
+    def last_run_at(self) -> Optional[datetime]:
+        """Return the UTC timestamp of the most recent task execution, or None."""
+        return self._last_run_at
 
     def start(self) -> None:
         """Start the scheduler loop. Blocks until stopped or max_runs reached."""
@@ -49,6 +55,7 @@ class DriftScheduler:
                     self.task()
                 except Exception as exc:  # noqa: BLE001
                     logger.error("Task raised an exception: %s", exc)
+                self._last_run_at = start_time
                 self._run_count += 1
                 if self.max_runs is not None and self._run_count >= self.max_runs:
                     logger.info("Reached max_runs=%d, stopping.", self.max_runs)
