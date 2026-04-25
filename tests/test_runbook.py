@@ -59,3 +59,11 @@ def test_all_returns_copy(store: RunbookStore) -> None:
     assert len(data) == 2
     data["s3"] = "https://c.com"
     assert store.get("s3") is None
+
+
+def test_set_overwrites_existing_url(store: RunbookStore) -> None:
+    """Updating a stack's runbook URL should replace the previous value."""
+    store.set("stack-d", "https://example.com/old")
+    store.set("stack-d", "https://example.com/new")
+    assert store.get("stack-d") == "https://example.com/new"
+    assert len(store.all()) == 1
